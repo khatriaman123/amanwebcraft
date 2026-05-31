@@ -1,0 +1,65 @@
+/* Global app styling — obsidian + gold luxury */
+.App {
+  min-height: 100vh;
+  background: transparent;
+  color: #f4f4f5;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.section-heading {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: #d4af37;
+}
+
+.container-xl {
+  max-width: 1280px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 24px;
+  padding-right: 24px;
+}
+
+@media (max-width: 768px) {
+  .container-xl { padding-left: 16px; padding-right: 16px; }
+}
+
+.btn-gold {
+  background: linear-gradient(135deg, #f5d78c 0%, #d4af37 55%, #a07e1d 100%);
+  color: #0a0a0b;
+  font-weight: 600;
+  padding: 12px 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(245,215,140,0.4);
+  box-shadow: 0 10px 30px -10px rgba(212,175,55,0.4);
+}
+.btn-gold:hover { transform: translateY(-2px); box-shadow: 0 16px 40px -12px rgba(212,175,55,0.55); }
+
+.btn-ghost {
+  background: rgba(18,18,20,0.6);
+  color: #f4f4f5;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 1px solid rgba(212,175,55,0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-ghost:hover { border-color: #d4af37; color: #f5d78c; }
+
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,0.35), transparent);
+}

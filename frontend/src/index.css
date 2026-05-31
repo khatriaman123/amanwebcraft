@@ -1,0 +1,220 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  margin: 0;
+  background: #0a0a0b;
+  color: #f4f4f5;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(212,175,55,0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 40%, rgba(212,175,55,0.05), transparent 60%),
+    #0a0a0b;
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+code, pre, .font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.font-serif {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0a0a0b; }
+::-webkit-scrollbar-thumb { background: linear-gradient(#d4af37, #8a7429); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #d4af37; }
+
+/* Selection */
+::selection { background: #d4af37; color: #0a0a0b; }
+
+@layer base {
+  :root {
+    --background: 240 6% 5%;
+    --foreground: 40 15% 96%;
+    --card: 240 6% 8%;
+    --card-foreground: 40 15% 96%;
+    --popover: 240 6% 7%;
+    --popover-foreground: 40 15% 96%;
+    --primary: 43 58% 52%;
+    --primary-foreground: 0 0% 7%;
+    --secondary: 240 4% 14%;
+    --secondary-foreground: 40 15% 96%;
+    --muted: 240 4% 14%;
+    --muted-foreground: 240 4% 65%;
+    --accent: 43 58% 52%;
+    --accent-foreground: 0 0% 7%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 40 25% 20%;
+    --input: 240 4% 14%;
+    --ring: 43 58% 52%;
+    --radius: 0.75rem;
+    --gold: 43 58% 52%;
+    --gold-bright: 44 73% 76%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+}
+
+/* Utilities */
+.gold-text {
+  background: linear-gradient(135deg, #f5d78c 0%, #d4af37 45%, #a07e1d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.gold-border {
+  position: relative;
+}
+.gold-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(245,215,140,0.6), rgba(212,175,55,0.1) 50%, rgba(138,116,41,0.6));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.glass {
+  background: rgba(18,18,20,0.55);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border: 1px solid rgba(212,175,55,0.14);
+}
+
+.grain::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* 3D cube */
+.cube-scene { perspective: 1200px; }
+.cube {
+  width: 180px; height: 180px;
+  position: relative;
+  transform-style: preserve-3d;
+  animation: cube-spin 18s linear infinite;
+}
+.cube-face {
+  position: absolute; inset: 0;
+  border: 1px solid rgba(212,175,55,0.35);
+  background: linear-gradient(135deg, rgba(18,18,20,0.85), rgba(10,10,11,0.85));
+  display: flex; align-items: center; justify-content: center;
+  color: #f5d78c;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  box-shadow: inset 0 0 40px rgba(212,175,55,0.08);
+}
+.cube-face.front  { transform: translateZ(90px); }
+.cube-face.back   { transform: rotateY(180deg) translateZ(90px); }
+.cube-face.right  { transform: rotateY(90deg) translateZ(90px); }
+.cube-face.left   { transform: rotateY(-90deg) translateZ(90px); }
+.cube-face.top    { transform: rotateX(90deg) translateZ(90px); }
+.cube-face.bottom { transform: rotateX(-90deg) translateZ(90px); }
+
+@keyframes cube-spin {
+  0% { transform: rotateX(-20deg) rotateY(0deg); }
+  100% { transform: rotateX(-20deg) rotateY(360deg); }
+}
+
+/* Floating animation */
+@keyframes floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+.floaty { animation: floaty 6s ease-in-out infinite; }
+
+/* Shimmer */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,0.15), transparent);
+  background-size: 400px 100%;
+  animation: shimmer 2.4s infinite;
+}
+
+/* Laptop mockup */
+.laptop {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 16/10;
+  border-radius: 14px 14px 4px 4px;
+  background: linear-gradient(180deg, #1a1a1d, #0f0f11);
+  border: 1px solid rgba(212,175,55,0.25);
+  padding: 14px;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,175,55,0.05);
+  transform: perspective(1400px) rotateX(6deg) rotateY(-8deg);
+  transition: transform 600ms cubic-bezier(.2,.7,.2,1);
+}
+.laptop:hover { transform: perspective(1400px) rotateX(2deg) rotateY(-2deg); }
+.laptop-screen {
+  width: 100%; height: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+  position: relative;
+}
+.laptop-base {
+  position: absolute;
+  left: -5%; right: -5%; bottom: -10px;
+  height: 10px;
+  border-radius: 0 0 14px 14px;
+  background: linear-gradient(180deg, #26262a, #101012);
+}
+
+/* Noise pulse for particles */
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,215,140,0.9), rgba(212,175,55,0) 70%);
+  pointer-events: none;
+}
+
+/* Hide native cursor on desktop where custom cursor used */
+@media (hover: hover) and (pointer: fine) {
+  body.has-cursor, body.has-cursor * { cursor: none !important; }
+}
+
+/* Marquee */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.marquee-track { display: inline-flex; animation: marquee 30s linear infinite; }
+
+/* Ensure form focus visible */
+input:focus, textarea:focus, select:focus, button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(212,175,55,0.45);
+}
+
+/* Transitions for interactive elements */
+button, a, input, textarea, select { transition: background-color .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease, transform .25s ease; }

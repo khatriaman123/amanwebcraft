@@ -1,0 +1,490 @@
+#!/usr/bin/env python3
+"""
+Comprehensive Backend Testing for Aman Web Craft
+Tests all API endpoints with authentication, CRUD operations, and edge cases.
+"""
+
+import requests
+import json
+import sys
+from typing import Dict, Any, Optional
+
+# Configuration
+BASE_URL = "https://aman-web-craft.preview.emergentagent.com/api"
+ADMIN_CREDS = {"username": "aman", "password": "craft2025"}
+
+class BackendTester:
+    def __init__(self):
+        self.token = None
+        self.test_results = []
+        self.created_items = {}  # Track created items for cleanup
+        
+    def log_test(self, test_name: str, success: bool, details: str = ""):
+        """Log test result"""
+        status = "✅ PASS" if success else "❌ FAIL"
+        self.test_results.append({
+            "test": test_name,
+            "success": success,
+            "details": details
+        })
+        print(f"{status} {test_name}")
+        if details:
+            print(f"    {details}")
+    
+    def make_request(self, method: str, endpoint: str, data: Dict = None, 
+                    headers: Dict = None, expect_status: int = 200) -> Optional[Dict]:
+        """Make HTTP request and handle response"""
+        url = f"{BASE_URL}{endpoint}"
+        req_headers = headers or {}
+        
+        try:
+            if method.upper() == "GET":
+                response = requests.get(url, headers=req_headers, timeout=30)
+            elif method.upper() == "POST":
+                response = requests.post(url, json=data, headers=req_headers, timeout=30)
+            elif method.upper() == "PUT":
+                response = requests.put(url, json=data, headers=req_headers, timeout=30)
+            elif method.upper() == "PATCH":
+                response = requests.patch(url, json=data, headers=req_headers, timeout=30)
+            elif method.upper() == "DELETE":
+                response = requests.delete(url, headers=req_headers, timeout=30)
+            else:
+                raise ValueError(f"Unsupported method: {method}")
+            
+            if response.status_code != expect_status:
+                return {
+                    "error": f"Expected {expect_status}, got {response.status_code}",
+                    "response": response.text[:500]
+                }
+            
+            try:
+                return response.json()
+            except:
+                return {"raw_response": response.text}
+                
+        except Exception as e:
+            return {"error": str(e)}
+    
+    def get_auth_headers(self) -> Dict[str, str]:
+        """Get authorization headers"""
+        if not self.token:
+            return {}
+        return {"Authorization": f"Bearer {self.token}"}
+    
+    def test_admin_login(self):
+        """Test 1: Admin login with correct and wrong credentials"""
+        print("\n=== Testing Admin Login ===")
+        
+        # Test correct credentials
+        result = self.make_request("POST", "/admin/login", ADMIN_CREDS)
+        if result and "token" in result and "username" in result:
+            self.token = result["token"]
+            self.log_test("Admin login with correct credentials", True, 
+                         f"Got token and username: {result['username']}")
+        else:
+            self.log_test("Admin login with correct credentials", False, 
+                         f"Response: {result}")
+            return False
+        
+        # Test wrong credentials
+        wrong_creds = {"username": "aman", "password": "wrongpassword"}
+        result = self.make_request("POST", "/admin/login", wrong_creds, expect_status=401)
+        if result and "error" not in result:
+            self.log_test("Admin login with wrong credentials", True, "Got 401 as expected")
+        else:
+            self.log_test("Admin login with wrong credentials", False, 
+                         f"Expected 401, got: {result}")
+        
+        return True
+    
+    def test_public_endpoints(self):
+        """Test 2: Public GET endpoints return seeded data"""
+        print("\n=== Testing Public GET Endpoints ===")
+        
+        endpoints = [
+            ("/profile", "Profile data"),
+            ("/skills", "Skills list (expect 8)"),
+            ("/services", "Services list (expect 12)"),
+            ("/projects", "Projects list (expect 4)"),
+            ("/testimonials", "Testimonials list (expect 4)"),
+            ("/blogs", "Blogs list (expect 3)"),
+            ("/blogs/building-premium-dashboards", "Single blog with comments")
+        ]
+        
+        for endpoint, description in endpoints:
+            result = self.make_request("GET", endpoint)
+            if result and "error" not in result:
+                if endpoint == "/skills" and isinstance(result, list):
+                    success = len(result) == 8
+                    details = f"Got {len(result)} skills" + ("" if success else " (expected 8)")
+                elif endpoint == "/services" and isinstance(result, list):
+                    success = len(result) == 12
+                    details = f"Got {len(result)} services" + ("" if success else " (expected 12)")
+                elif endpoint == "/projects" and isinstance(result, list):
+                    success = len(result) == 4
+                    details = f"Got {len(result)} projects" + ("" if success else " (expected 4)")
+                elif endpoint == "/testimonials" and isinstance(result, list):
+                    success = len(result) == 4
+                    details = f"Got {len(result)} testimonials" + ("" if success else " (expected 4)")
+                elif endpoint == "/blogs" and isinstance(result, list):
+                    success = len(result) == 3
+                    details = f"Got {len(result)} blogs" + ("" if success else " (expected 3)")
+                elif endpoint == "/blogs/building-premium-dashboards":
+                    success = isinstance(result, dict) and "title" in result
+                    details = f"Got blog: {result.get('title', 'No title')[:50]}"
+                else:
+                    success = True
+                    details = f"Got data: {str(result)[:100]}..."
+                
+                self.log_test(f"GET {endpoint} - {description}", success, details)
+            else:
+                self.log_test(f"GET {endpoint} - {description}", False, f"Error: {result}")
+    
+    def test_crud_protection(self):
+        """Test 3: CRUD operations require authentication"""
+        print("\n=== Testing CRUD Protection ===")
+        
+        # Test without token (should get 401)
+        test_skill = {"name": "Test Skill", "level": 85, "category": "Testing"}
+        result = self.make_request("POST", "/skills", test_skill, expect_status=401)
+        if result and "error" not in result:
+            self.log_test("POST /skills without token returns 401", True)
+        else:
+            self.log_test("POST /skills without token returns 401", False, f"Got: {result}")
+        
+        # Test with token (should work)
+        result = self.make_request("POST", "/skills", test_skill, self.get_auth_headers())
+        if result and "error" not in result and "id" in result:
+            skill_id = result["id"]
+            self.created_items["skill"] = skill_id
+            self.log_test("POST /skills with token works", True, f"Created skill ID: {skill_id}")
+            
+            # Test full CRUD cycle
+            self.test_full_crud_cycle("skills", skill_id, {
+                "name": "Updated Test Skill", 
+                "level": 90, 
+                "category": "Testing Updated"
+            })
+        else:
+            self.log_test("POST /skills with token works", False, f"Error: {result}")
+    
+    def test_full_crud_cycle(self, collection: str, item_id: str, update_data: Dict):
+        """Test full CRUD cycle for a collection"""
+        print(f"\n=== Testing Full CRUD for {collection} ===")
+        
+        # Test UPDATE (PUT)
+        result = self.make_request("PUT", f"/{collection}/{item_id}", update_data, self.get_auth_headers())
+        if result and "error" not in result:
+            self.log_test(f"PUT /{collection}/{item_id}", True, "Updated successfully")
+        else:
+            self.log_test(f"PUT /{collection}/{item_id}", False, f"Error: {result}")
+        
+        # Test LIST to verify update
+        result = self.make_request("GET", f"/{collection}")
+        if result and isinstance(result, list):
+            found = any(item.get("id") == item_id for item in result)
+            self.log_test(f"GET /{collection} shows updated item", found, 
+                         f"Found item in list: {found}")
+        else:
+            self.log_test(f"GET /{collection} shows updated item", False, f"Error: {result}")
+        
+        # Test DELETE
+        result = self.make_request("DELETE", f"/{collection}/{item_id}", headers=self.get_auth_headers())
+        if result and "error" not in result:
+            deleted_count = result.get("deleted", 0)
+            success = deleted_count > 0
+            self.log_test(f"DELETE /{collection}/{item_id}", success, 
+                         f"Deleted count: {deleted_count}")
+        else:
+            self.log_test(f"DELETE /{collection}/{item_id}", False, f"Error: {result}")
+    
+    def test_quick_crud_other_collections(self):
+        """Test quick POST-then-DELETE on other collections"""
+        print("\n=== Testing Quick CRUD on Other Collections ===")
+        
+        collections_data = {
+            "services": {
+                "title": "Test Service",
+                "desc": "A test service description",
+                "icon": "TestIcon"
+            },
+            "projects": {
+                "title": "Test Project",
+                "category": "Test Category",
+                "tech": ["Test Tech"],
+                "summary": "Test project summary",
+                "cover": "https://example.com/test.jpg"
+            },
+            "testimonials": {
+                "name": "Test Client",
+                "role": "Test Role",
+                "quote": "This is a test testimonial"
+            },
+            "blogs": {
+                "slug": "test-blog-post",
+                "title": "Test Blog Post",
+                "excerpt": "Test excerpt",
+                "content": "Test content",
+                "cover": "https://example.com/test.jpg"
+            }
+        }
+        
+        for collection, data in collections_data.items():
+            # Create
+            result = self.make_request("POST", f"/{collection}", data, self.get_auth_headers())
+            if result and "error" not in result and "id" in result:
+                item_id = result["id"]
+                self.log_test(f"POST /{collection}", True, f"Created ID: {item_id}")
+                
+                # Delete
+                delete_result = self.make_request("DELETE", f"/{collection}/{item_id}", 
+                                                headers=self.get_auth_headers())
+                if delete_result and "error" not in delete_result:
+                    self.log_test(f"DELETE /{collection}/{item_id}", True, "Deleted successfully")
+                else:
+                    self.log_test(f"DELETE /{collection}/{item_id}", False, f"Error: {delete_result}")
+            else:
+                self.log_test(f"POST /{collection}", False, f"Error: {result}")
+    
+    def test_blog_interactions(self):
+        """Test 4: Blog likes and comments functionality"""
+        print("\n=== Testing Blog Interactions ===")
+        
+        # Get a blog to test with
+        blogs = self.make_request("GET", "/blogs")
+        if not blogs or not isinstance(blogs, list) or len(blogs) == 0:
+            self.log_test("Blog interactions setup", False, "No blogs found")
+            return
+        
+        blog_id = blogs[0]["id"]
+        initial_likes = blogs[0].get("likes", 0)
+        
+        # Test like (increment)
+        result = self.make_request("POST", f"/blogs/{blog_id}/like", {"liked": True})
+        if result and "likes" in result:
+            new_likes = result["likes"]
+            expected_likes = initial_likes + 1
+            success = new_likes == expected_likes
+            self.log_test("Blog like increment", success, 
+                         f"Likes: {initial_likes} → {new_likes} (expected {expected_likes})")
+        else:
+            self.log_test("Blog like increment", False, f"Error: {result}")
+            return
+        
+        # Test unlike (decrement)
+        result = self.make_request("POST", f"/blogs/{blog_id}/like", {"liked": False})
+        if result and "likes" in result:
+            final_likes = result["likes"]
+            success = final_likes == initial_likes
+            self.log_test("Blog like decrement", success, 
+                         f"Likes: {new_likes} → {final_likes} (expected {initial_likes})")
+        else:
+            self.log_test("Blog like decrement", False, f"Error: {result}")
+        
+        # Test add comment
+        comment_data = {"name": "Test Commenter", "text": "This is a test comment"}
+        result = self.make_request("POST", f"/blogs/{blog_id}/comments", comment_data)
+        if result and "id" in result and "name" in result:
+            comment_id = result["id"]
+            self.log_test("Add blog comment", True, f"Created comment ID: {comment_id}")
+            
+            # Test add reply
+            reply_data = {"name": "Test Replier", "text": "This is a test reply"}
+            reply_result = self.make_request("POST", f"/blogs/{blog_id}/comments/{comment_id}/reply", reply_data)
+            if reply_result and "id" in reply_result:
+                self.log_test("Add comment reply", True, f"Created reply ID: {reply_result['id']}")
+            else:
+                self.log_test("Add comment reply", False, f"Error: {reply_result}")
+            
+            # Test get comments
+            comments_result = self.make_request("GET", f"/blogs/{blog_id}/comments")
+            if comments_result and isinstance(comments_result, list):
+                found_comment = any(c.get("id") == comment_id for c in comments_result)
+                self.log_test("Get blog comments", found_comment, 
+                             f"Found {len(comments_result)} comments, our comment present: {found_comment}")
+            else:
+                self.log_test("Get blog comments", False, f"Error: {comments_result}")
+        else:
+            self.log_test("Add blog comment", False, f"Error: {result}")
+    
+    def test_orders_flow(self):
+        """Test 5: Orders functionality (public POST, admin rest)"""
+        print("\n=== Testing Orders Flow ===")
+        
+        # Test public order creation
+        order_data = {
+            "name": "John Doe",
+            "email": "john@example.com",
+            "service": "Custom Website Development",
+            "budget": "$5000-$10000",
+            "timeline": "2-3 months",
+            "brief": "I need a modern e-commerce website with payment integration"
+        }
+        
+        result = self.make_request("POST", "/orders", order_data)
+        if result and "error" not in result and "id" in result:
+            order_id = result["id"]
+            self.log_test("Public order creation", True, f"Created order ID: {order_id}")
+            
+            # Test GET orders without token (should fail)
+            no_auth_result = self.make_request("GET", "/orders", expect_status=401)
+            if no_auth_result and "error" not in no_auth_result:
+                self.log_test("GET orders without token returns 401", True)
+            else:
+                self.log_test("GET orders without token returns 401", False, f"Got: {no_auth_result}")
+            
+            # Test GET orders with token
+            orders_result = self.make_request("GET", "/orders", headers=self.get_auth_headers())
+            if orders_result and isinstance(orders_result, list):
+                found_order = any(o.get("id") == order_id for o in orders_result)
+                self.log_test("GET orders with token", found_order, 
+                             f"Found {len(orders_result)} orders, our order present: {found_order}")
+            else:
+                self.log_test("GET orders with token", False, f"Error: {orders_result}")
+            
+            # Test PATCH order status
+            patch_data = {"status": "in-progress"}
+            patch_result = self.make_request("PATCH", f"/orders/{order_id}", patch_data, 
+                                           self.get_auth_headers())
+            if patch_result and "error" not in patch_result:
+                updated_status = patch_result.get("status")
+                success = updated_status == "in-progress"
+                self.log_test("PATCH order status", success, 
+                             f"Status updated to: {updated_status}")
+            else:
+                self.log_test("PATCH order status", False, f"Error: {patch_result}")
+            
+            # Test DELETE order
+            delete_result = self.make_request("DELETE", f"/orders/{order_id}", 
+                                            headers=self.get_auth_headers())
+            if delete_result and "error" not in delete_result:
+                deleted_count = delete_result.get("deleted", 0)
+                success = deleted_count > 0
+                self.log_test("DELETE order", success, f"Deleted count: {deleted_count}")
+            else:
+                self.log_test("DELETE order", False, f"Error: {delete_result}")
+        else:
+            self.log_test("Public order creation", False, f"Error: {result}")
+    
+    def test_messages_flow(self):
+        """Test 6: Messages functionality (public POST, admin rest)"""
+        print("\n=== Testing Messages Flow ===")
+        
+        # Test public message creation
+        message_data = {
+            "name": "Jane Smith",
+            "email": "jane@example.com",
+            "msg": "Hi Aman, I'm interested in your web development services. Can we schedule a call?"
+        }
+        
+        result = self.make_request("POST", "/messages", message_data)
+        if result and "error" not in result and "id" in result:
+            message_id = result["id"]
+            self.log_test("Public message creation", True, f"Created message ID: {message_id}")
+            
+            # Test GET messages with token
+            messages_result = self.make_request("GET", "/messages", headers=self.get_auth_headers())
+            if messages_result and isinstance(messages_result, list):
+                found_message = any(m.get("id") == message_id for m in messages_result)
+                self.log_test("GET messages with token", found_message, 
+                             f"Found {len(messages_result)} messages, our message present: {found_message}")
+            else:
+                self.log_test("GET messages with token", False, f"Error: {messages_result}")
+            
+            # Test DELETE message
+            delete_result = self.make_request("DELETE", f"/messages/{message_id}", 
+                                            headers=self.get_auth_headers())
+            if delete_result and "error" not in delete_result:
+                deleted_count = delete_result.get("deleted", 0)
+                success = deleted_count > 0
+                self.log_test("DELETE message", success, f"Deleted count: {deleted_count}")
+            else:
+                self.log_test("DELETE message", False, f"Error: {delete_result}")
+        else:
+            self.log_test("Public message creation", False, f"Error: {result}")
+    
+    def test_admin_extras(self):
+        """Test 7: Admin extras (profile update, stats)"""
+        print("\n=== Testing Admin Extras ===")
+        
+        # Test GET current profile
+        current_profile = self.make_request("GET", "/profile")
+        if current_profile and "error" not in current_profile:
+            self.log_test("GET current profile", True, f"Got profile for: {current_profile.get('name', 'Unknown')}")
+            
+            # Test PUT profile update
+            updated_profile = current_profile.copy()
+            updated_profile["tagline"] = "Updated Tagline - Full Stack Developer & Test Engineer"
+            
+            update_result = self.make_request("PUT", "/profile", updated_profile, 
+                                            self.get_auth_headers())
+            if update_result and "error" not in update_result:
+                self.log_test("PUT profile update", True, "Profile updated successfully")
+                
+                # Verify update by getting profile again
+                verify_result = self.make_request("GET", "/profile")
+                if verify_result and verify_result.get("tagline") == updated_profile["tagline"]:
+                    self.log_test("Verify profile update", True, "Updated tagline persisted")
+                else:
+                    self.log_test("Verify profile update", False, 
+                                 f"Tagline not updated: {verify_result.get('tagline')}")
+            else:
+                self.log_test("PUT profile update", False, f"Error: {update_result}")
+        else:
+            self.log_test("GET current profile", False, f"Error: {current_profile}")
+        
+        # Test admin stats
+        stats_result = self.make_request("GET", "/admin/stats", headers=self.get_auth_headers())
+        if stats_result and "error" not in stats_result:
+            expected_collections = ['skills', 'services', 'projects', 'testimonials', 'blogs', 'orders', 'messages']
+            has_all_collections = all(col in stats_result for col in expected_collections)
+            self.log_test("GET admin stats", has_all_collections, 
+                         f"Stats: {stats_result}")
+        else:
+            self.log_test("GET admin stats", False, f"Error: {stats_result}")
+    
+    def run_all_tests(self):
+        """Run all backend tests"""
+        print("🚀 Starting Comprehensive Backend Testing for Aman Web Craft")
+        print(f"🌐 Base URL: {BASE_URL}")
+        print("=" * 80)
+        
+        # Run tests in order
+        if not self.test_admin_login():
+            print("❌ Admin login failed - stopping tests")
+            return False
+        
+        self.test_public_endpoints()
+        self.test_crud_protection()
+        self.test_quick_crud_other_collections()
+        self.test_blog_interactions()
+        self.test_orders_flow()
+        self.test_messages_flow()
+        self.test_admin_extras()
+        
+        # Summary
+        print("\n" + "=" * 80)
+        print("📊 TEST SUMMARY")
+        print("=" * 80)
+        
+        passed = sum(1 for result in self.test_results if result["success"])
+        total = len(self.test_results)
+        
+        print(f"✅ Passed: {passed}/{total}")
+        print(f"❌ Failed: {total - passed}/{total}")
+        
+        if total - passed > 0:
+            print("\n🔍 FAILED TESTS:")
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"  ❌ {result['test']}")
+                    if result["details"]:
+                        print(f"     {result['details']}")
+        
+        print(f"\n🎯 Success Rate: {(passed/total)*100:.1f}%")
+        return passed == total
+
+if __name__ == "__main__":
+    tester = BackendTester()
+    success = tester.run_all_tests()
+    sys.exit(0 if success else 1)
